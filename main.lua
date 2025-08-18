@@ -387,7 +387,7 @@ local FOVRadius = 100
 local FOVCircle
 
 -- Create Tab
-local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
+local AimbotTab = Window:CreateTab("Aimbot", 563534065)
 
 -- Draw FOV Circle
 local function CreateFOVCircle()
@@ -465,7 +465,7 @@ AimbotTab:CreateToggle({
 })
 
 -- TELEPORT TAB
-local TeleportTab = Window:CreateTab("Teleport", 4483362458)
+local TeleportTab = Window:CreateTab("Teleport",138281706845765)
 
 local selectedPlayerName = nil
 
