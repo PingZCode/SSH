@@ -28,7 +28,7 @@ local Window = Rayfield:CreateWindow({
     }
 })
 
-local MainTab = Window:CreateTab("| Main", 13307015163)
+local MainTab = Window:CreateTab("| Main", 8772194322)
 
 -- Speed Slider
 MainTab:CreateSlider({
