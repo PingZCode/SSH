@@ -374,6 +374,9 @@ MainTab:CreateToggle({
     end,
 })
 
+----------------------------------------------------
+-- Aimbot
+----------------------------------------------------
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -385,6 +388,7 @@ local AimbotEnabled = false
 local ShowFOV = false
 local FOVRadius = 100
 local FOVCircle
+local AimbotKey = "T" -- Default Key
 
 -- Create Tab
 local AimbotTab = Window:CreateTab("| Aimbot", 10769687353)
@@ -445,22 +449,125 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Aimbot Toggle
+-- PC Aimbot Toggle
 AimbotTab:CreateToggle({
-    Name = "Enable Aimbot",
+    Name = "Enable Aimbot (PC)",
     CurrentValue = false,
     Callback = function(Value)
         AimbotEnabled = Value
     end
 })
 
--- FOV Toggle
+-- PC FOV Toggle
 AimbotTab:CreateToggle({
-    Name = "Show FOV Circle",
+    Name = "Show FOV Circle (PC)",
     CurrentValue = false,
     Callback = function(Value)
         ShowFOV = Value
         CreateFOVCircle()
+    end
+})
+
+-- Keybind Input (PC)
+AimbotTab:CreateInput({
+    Name = "Aimbot Key (PC)",
+    PlaceholderText = "Press key (Default: T)",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        if Text and #Text > 0 then
+            AimbotKey = Text:upper()
+        end
+    end
+})
+
+-- Keybind Toggle Handling
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode.Name == AimbotKey then
+            AimbotEnabled = not AimbotEnabled
+            ShowFOV = AimbotEnabled
+            CreateFOVCircle()
+        end
+    end
+end)
+
+----------------------------------------------------
+-- 📱 Handy-GUI System
+----------------------------------------------------
+local PhoneGui -- referenz auf das GUI
+local PhoneToggleButton -- referenz auf den On/Off-Button
+local PhoneAimbotState = false -- Zustand im GUI
+
+-- Funktion zum Erstellen des GUIs
+local function CreatePhoneGui()
+    PhoneGui = Instance.new("ScreenGui")
+    PhoneGui.Name = "PhoneAimbotGui"
+    PhoneGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0.25, 0, 0.12, 0) -- klein
+    Frame.Position = UDim2.new(0.7, 0, 0.45, 0) -- rechts Mitte
+    Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    Frame.BackgroundTransparency = 0.2
+    Frame.BorderSizePixel = 0
+    Frame.Active = true
+    Frame.Draggable = true
+    Frame.Parent = PhoneGui
+
+    local UICorner = Instance.new("UICorner", Frame)
+    UICorner.CornerRadius = UDim.new(0,15)
+
+    -- On/Off Button
+    PhoneToggleButton = Instance.new("TextButton")
+    PhoneToggleButton.Size = UDim2.new(0.8, 0, 0.6, 0)
+    PhoneToggleButton.Position = UDim2.new(0.1, 0, 0.2, 0)
+    PhoneToggleButton.Text = "OFF"
+    PhoneToggleButton.TextScaled = true
+    PhoneToggleButton.BackgroundColor3 = Color3.fromRGB(200,50,50)
+    PhoneToggleButton.TextColor3 = Color3.fromRGB(255,255,255)
+    PhoneToggleButton.Parent = Frame
+    Instance.new("UICorner", PhoneToggleButton).CornerRadius = UDim.new(0,10)
+
+    -- Button Logik
+    PhoneToggleButton.MouseButton1Click:Connect(function()
+        PhoneAimbotState = not PhoneAimbotState
+        if PhoneAimbotState then
+            PhoneToggleButton.Text = "ON"
+            PhoneToggleButton.BackgroundColor3 = Color3.fromRGB(50,200,50)
+            AimbotEnabled = true
+            ShowFOV = true
+            CreateFOVCircle()
+        else
+            PhoneToggleButton.Text = "OFF"
+            PhoneToggleButton.BackgroundColor3 = Color3.fromRGB(200,50,50)
+            AimbotEnabled = false
+            ShowFOV = false
+            CreateFOVCircle()
+        end
+    end)
+end
+
+-- Funktion zum Entfernen des GUIs
+local function RemovePhoneGui()
+    if PhoneGui then
+        PhoneGui:Destroy()
+        PhoneGui = nil
+        PhoneAimbotState = false
+    end
+end
+
+-- 📱 Toggle im Rayfield-Menü
+AimbotTab:CreateToggle({
+    Name = "Phone Aimbot GUI",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then
+            if not PhoneGui then
+                CreatePhoneGui()
+            end
+        else
+            RemovePhoneGui()
+        end
     end
 })
 
