@@ -10,9 +10,9 @@ pcall(function()
 end)
 
 local Window = Rayfield:CreateWindow({
-    Name = "🔥SilentHub V1.4🔥",
+    Name = "⭐SilentHub V1.6⭐",
     LoadingTitle = "Loading...",
-    LoadingSubtitle = "🔥By Pingz0🔥",
+    LoadingSubtitle = "🔥By Pingz0🔥",
     ConfigurationSaving = {
         Enabled = false,
     },
@@ -33,7 +33,7 @@ local MainTab = Window:CreateTab("| Main", 8772194322)
 -- Speed Slider
 MainTab:CreateSlider({
     Name = "Speed Hack",
-    Range = {16, 500},
+    Range = {16, 1000},
     Increment = 1,
     Suffix = " WalkSpeed",
     CurrentValue = 16,
@@ -45,7 +45,7 @@ MainTab:CreateSlider({
 -- Jump Power Slider
 MainTab:CreateSlider({
     Name = "Jump Hack",
-    Range = {50, 500},
+    Range = {50, 1000},
     Increment = 5,
     Suffix = " JumpPower",
     CurrentValue = 50,
@@ -58,7 +58,7 @@ local FlySpeed = 2
 
 MainTab:CreateSlider({
     Name = "Fly Speed",
-    Range = {1, 50},
+    Range = {1, 100},
     Increment = 1,
     Suffix = "x",
     CurrentValue = FlySpeed,
@@ -77,7 +77,9 @@ local cam = workspace.CurrentCamera
 local flying = false
 local BodyVelocity
 local BodyGyro
+local FlySpeed = 2 -- kannst du anpassen
 
+-- Funktion zum Starten
 local function startFly()
     if flying then return end
     flying = true
@@ -92,6 +94,7 @@ local function startFly()
     BodyGyro.Parent = rootPart
 end
 
+-- Funktion zum Stoppen
 local function stopFly()
     if not flying then return end
     flying = false
@@ -99,6 +102,7 @@ local function stopFly()
     if BodyGyro then BodyGyro:Destroy() BodyGyro = nil end
 end
 
+-- Bewegung updaten
 local function updateFly()
     if not flying then return end
     local moveDir = Vector3.new()
@@ -109,10 +113,11 @@ local function updateFly()
     if userInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0,1,0) end
     if userInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0,1,0) end
     if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
-    BodyVelocity.Velocity = moveDir * FlySpeed * 16 -- Multiply by 16 studs/sec roughly for normal walking speed ~32
+    BodyVelocity.Velocity = moveDir * FlySpeed * 16
     BodyGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + cam.CFrame.LookVector)
 end
 
+-- Button in deinem GUI
 MainTab:CreateButton({
     Name = "Toggle Fly",
     Callback = function()
@@ -124,10 +129,26 @@ MainTab:CreateButton({
     end,
 })
 
+-- Fly beim Herzschlag updaten
 runService.Heartbeat:Connect(function()
     if flying then
         updateFly()
     end
+end)
+
+-- Charakter nach Respawn aktualisieren
+player.CharacterAdded:Connect(function(char)
+    character = char
+    rootPart = char:WaitForChild("HumanoidRootPart")
+
+    -- Fly-System automatisch neu initialisieren
+    if flying then
+        stopFly()
+    end
+    
+    task.wait(0.1)
+    startFly()
+    stopFly() -- sofort wieder ausmachen -> Toggle funktioniert normal
 end)
 
 -- NoClip
@@ -154,34 +175,40 @@ local ESPDrawings = {}
 local ESPConnections = {}
 local ESPEnabled = false
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
+local ESPColor = Color3.new(1,0,0) -- Rot (default)
+
+-- Funktion: Alles ESP löschen
+local function clearAllESP()
+    for _, conn in pairs(ESPConnections) do
+        if typeof(conn) == "RBXScriptConnection" then
+            conn:Disconnect()
+        end
+    end
+    ESPConnections = {}
+
+    for _, drawings in pairs(ESPDrawings) do
+        for _, obj in pairs(drawings) do
+            if typeof(obj) == "Instance" then
+                obj:Destroy()
+            elseif typeof(obj) == "Drawing" then
+                obj:Remove()
+            end
+        end
+    end
+    ESPDrawings = {}
+end
+
+-- ESP Toggle
 MainTab:CreateToggle({
     Name = "ESP (Red Outline + NameTag)",
     CurrentValue = false,
     Callback = function(state)
         ESPEnabled = state
 
-        -- Remove previous ESP
-        for _, conn in pairs(ESPConnections) do
-            if typeof(conn) == "RBXScriptConnection" then
-                conn:Disconnect()
-            end
-        end
-        ESPConnections = {}
-
-        for _, drawings in pairs(ESPDrawings) do
-            for _, obj in pairs(drawings) do
-                if typeof(obj) == "Instance" then
-                    obj:Destroy()
-                elseif typeof(obj) == "table" and typeof(obj.Remove) == "function" then
-                    obj:Remove()
-                end
-            end
-        end
-        ESPDrawings = {}
-
+        clearAllESP()
         if not state then return end
 
         local function createESP(player)
@@ -202,7 +229,7 @@ MainTab:CreateToggle({
                         box.AlwaysOnTop = true
                         box.ZIndex = 10
                         box.Size = part.Size
-                        box.Color3 = Color3.new(1, 0, 0)
+                        box.Color3 = ESPColor
                         box.Transparency = 0.4
                         box.Parent = part
                         table.insert(drawings, box)
@@ -222,7 +249,7 @@ MainTab:CreateToggle({
                     label.Size = UDim2.new(1, 0, 1, 0)
                     label.BackgroundTransparency = 1
                     label.Text = player.Name
-                    label.TextColor3 = Color3.new(1, 0, 0)
+                    label.TextColor3 = ESPColor
                     label.TextScaled = true
                     label.Font = Enum.Font.SourceSansBold
                     table.insert(drawings, tag)
@@ -254,6 +281,13 @@ MainTab:CreateToggle({
     end
 })
 
+-- Extra Button: Clear ESP
+MainTab:CreateButton({
+    Name = "Clear All ESP",
+    Callback = function()
+        clearAllESP()
+    end
+})
 
 local NoFallEnabled = false
 local NoFallConnections = {}
@@ -285,7 +319,7 @@ MainTab:CreateToggle({
             end
         end))
 
-        -- Freefall-Zustände abfangen
+        -- Freefall-ZustÃ¤nde abfangen
         local function protectHumanoid(humanoid)
             table.insert(NoFallConnections, humanoid.StateChanged:Connect(function(_, new)
                 if NoFallEnabled and (new == Enum.HumanoidStateType.Freefall or new == Enum.HumanoidStateType.FallingDown) then
@@ -492,7 +526,7 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 ----------------------------------------------------
--- 📱 Handy-GUI System
+-- ðŸ“± Handy-GUI System
 ----------------------------------------------------
 local PhoneGui -- referenz auf das GUI
 local PhoneToggleButton -- referenz auf den On/Off-Button
@@ -556,7 +590,7 @@ local function RemovePhoneGui()
     end
 end
 
--- 📱 Toggle im Rayfield-Menü
+-- ðŸ“± Toggle im Rayfield-MenÃ¼
 AimbotTab:CreateToggle({
     Name = "Phone Aimbot GUI",
     CurrentValue = false,
@@ -597,7 +631,7 @@ TeleportTab:CreateButton({
       if not selectedPlayerName then
          Rayfield:Notify({
             Title = "Fehler",
-            Content = "Kein Spieler ausgewählt.",
+            Content = "Kein Spieler ausgewÃ¤hlt.",
             Duration = 3
          })
          return
@@ -627,10 +661,10 @@ local function UpdateDropdown()
    PlayerDropdown:Refresh(names, true)
 end
 
--- Spieler beim Start hinzufügen
+-- Spieler beim Start hinzufÃ¼gen
 UpdateDropdown()
 
--- Neue Spieler dynamisch hinzufügen
+-- Neue Spieler dynamisch hinzufÃ¼gen
 Players.PlayerAdded:Connect(function()
    task.wait(0.2)
    UpdateDropdown()
