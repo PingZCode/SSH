@@ -178,351 +178,119 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
-local ESPColor = Color3.new(1,0,0) -- Standard Rot
-local RGBEnabled = false
+local ESPColor = Color3.new(1,0,0) -- Rot (default)
 
 -- Funktion: Alles ESP löschen
 local function clearAllESP()
-    for _, conn in pairs(ESPConnections) do
-        if typeof(conn) == "RBXScriptConnection" then
-            conn:Disconnect()
-        end
-    end
-    ESPConnections = {}
-
-    for _, drawings in pairs(ESPDrawings) do
-        for _, obj in pairs(drawings) do
-            if typeof(obj) == "Instance" then
-                obj:Destroy()
-            elseif typeof(obj) == "Drawing" then
-                obj:Remove()
-            end
-        end
-    end
-    ESPDrawings = {}
+for _, conn in pairs(ESPConnections) do
+if typeof(conn) == "RBXScriptConnection" then
+conn:Disconnect()
 end
+end
+ESPConnections = {}
 
--- Funktion: Rainbow Farben
-task.spawn(function()
-    while task.wait(0.1) do
-        if RGBEnabled then
-            ESPColor = Color3.fromHSV(tick() % 5 / 5, 1, 1)
-        end
-    end
-end)
+for _, drawings in pairs(ESPDrawings) do  
+    for _, obj in pairs(drawings) do  
+        if typeof(obj) == "Instance" then  
+            obj:Destroy()  
+        elseif typeof(obj) == "Drawing" then  
+            obj:Remove()  
+        end  
+    end  
+end  
+ESPDrawings = {}
+
+end
 
 -- ESP Toggle
 MainTab:CreateToggle({
-    Name = "ESP (Outline + NameTag)",
-    CurrentValue = false,
-    Callback = function(state)
-        ESPEnabled = state
+Name = "ESP (Red Outline + NameTag)",
+CurrentValue = false,
+Callback = function(state)
+ESPEnabled = state
 
-        clearAllESP()
-        if not state then return end
+clearAllESP()  
+    if not state then return end  
 
-        local function createESP(player)
-            if player == LocalPlayer then return end
-            local drawings = {}
-            ESPDrawings[player] = drawings
+    local function createESP(player)  
+        if player == LocalPlayer then return end  
+        local drawings = {}  
+        ESPDrawings[player] = drawings  
 
-            local function update()
-                local character = player.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+        local function update()  
+            local character = player.Character  
+            if not character or not character:FindFirstChild("HumanoidRootPart") then return end  
 
-                -- Body Outline
-                for _, part in pairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") and not part:FindFirstChild("ESPBox") then
-                        local box = Instance.new("BoxHandleAdornment")
-                        box.Name = "ESPBox"
-                        box.Adornee = part
-                        box.AlwaysOnTop = true
-                        box.ZIndex = 10
-                        box.Size = part.Size
-                        box.Color3 = ESPColor
-                        box.Transparency = 0.4
-                        box.Parent = part
-                        table.insert(drawings, box)
+            -- Body Outline  
+            for _, part in pairs(character:GetDescendants()) do  
+                if part:IsA("BasePart") and not part:FindFirstChild("ESPBox") then  
+                    local box = Instance.new("BoxHandleAdornment")  
+                    box.Name = "ESPBox"  
+                    box.Adornee = part  
+                    box.AlwaysOnTop = true  
+                    box.ZIndex = 10  
+                    box.Size = part.Size  
+                    box.Color3 = ESPColor  
+                    box.Transparency = 0.4  
+                    box.Parent = part  
+                    table.insert(drawings, box)  
+                end  
+            end  
 
-                        -- Update Farbe dynamisch
-                        task.spawn(function()
-                            while box.Parent and ESPEnabled do
-                                box.Color3 = ESPColor
-                                task.wait(0.1)
-                            end
-                        end)
-                    end
-                end
+            -- Name Tag  
+            local head = character:FindFirstChild("Head")  
+            if head and not head:FindFirstChild("ESPName") then  
+                local tag = Instance.new("BillboardGui", head)  
+                tag.Name = "ESPName"  
+                tag.Size = UDim2.new(0, 100, 0, 20)  
+                tag.StudsOffset = Vector3.new(0, 2.5, 0)  
+                tag.AlwaysOnTop = true  
 
-                -- Name Tag
-                local head = character:FindFirstChild("Head")
-                if head and not head:FindFirstChild("ESPName") then
-                    local tag = Instance.new("BillboardGui", head)
-                    tag.Name = "ESPName"
-                    tag.Size = UDim2.new(0, 100, 0, 20)
-                    tag.StudsOffset = Vector3.new(0, 2.5, 0)
-                    tag.AlwaysOnTop = true
+                local label = Instance.new("TextLabel", tag)  
+                label.Size = UDim2.new(1, 0, 1, 0)  
+                label.BackgroundTransparency = 1  
+                label.Text = player.Name  
+                label.TextColor3 = ESPColor  
+                label.TextScaled = true  
+                label.Font = Enum.Font.SourceSansBold  
+                table.insert(drawings, tag)  
+            end  
+        end  
 
-                    local label = Instance.new("TextLabel", tag)
-                    label.Size = UDim2.new(1, 0, 1, 0)
-                    label.BackgroundTransparency = 1
-                    label.Text = player.Name
-                    label.TextColor3 = ESPColor
-                    label.TextScaled = true
-                    label.Font = Enum.Font.SourceSansBold
-                    table.insert(drawings, tag)
--- ESP mit Dropdown + "Apply Color" Button (sauber, kein Callback-Error)
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+        update()  
 
-local ESPEnabled = false
-local ESPDrawings = {} -- map player -> { boxes = {...}, nametag = BillboardGui, conns = {...} }
-local ESPColor = Color3.fromRGB(255, 0, 0) -- aktuelle Farbe
-local pendingColor = ESPColor -- Farbe aus Dropdown, noch nicht angewendet
-local RGBSelected = false
-local rgbTask = nil
-local globalConns = {} -- zum sichern/clearen (z.B. PlayerAdded)
+        -- Update ESP on respawn  
+        local conn = player.CharacterAdded:Connect(function()  
+            task.wait(1)  
+            update()  
+        end)  
+        table.insert(ESPConnections, conn)  
+    end  
 
--- Hilfsfunktion: wendet ESPColor sofort auf bestehende ESP-Objekte an
-local function applyColorToAll()
-    for player, data in pairs(ESPDrawings) do
-        if data and data.boxes then
-            for _, box in ipairs(data.boxes) do
-                if box and box.Parent then
-                    box.Color3 = ESPColor
-                end
-            end
-        end
-        if data and data.nametag and data.nametag.Parent then
-            local label = data.nametag:FindFirstChildWhichIsA("TextLabel", true)
-            if label then
-                label.TextColor3 = ESPColor
-            end
-        end
-    end
+    -- Add ESP for current players  
+    for _, player in pairs(Players:GetPlayers()) do  
+        createESP(player)  
+    end  
+
+    -- Handle new players  
+    table.insert(ESPConnections, Players.PlayerAdded:Connect(function(player)  
+        player.CharacterAdded:Connect(function()  
+            task.wait(1)  
+            createESP(player)  
+        end)  
+    end))  
 end
 
--- Hilfsfunktion: löscht ESP für einen Spieler
-local function clearPlayerESP(player)
-    local data = ESPDrawings[player]
-    if not data then return end
-
-    -- disconnect stored connections
-    if data.conns then
-        for _, c in ipairs(data.conns) do
-            if c and typeof(c) == "RBXScriptConnection" then
-                pcall(function() c:Disconnect() end)
-            end
-        end
-    end
-
-    -- destroy boxes
-    if data.boxes then
-        for _, box in ipairs(data.boxes) do
-            pcall(function() if box and box.Parent then box:Destroy() end end)
-        end
-    end
-
-    -- destroy nametag
-    if data.nametag then
-        pcall(function() if data.nametag and data.nametag.Parent then data.nametag:Destroy() end end)
-    end
-
-    ESPDrawings[player] = nil
-end
-
--- Hilfsfunktion: clear all
-local function clearAllESP()
-    -- disconnect global conns for player added/removed if exist
-    if globalConns.playerAdded then
-        pcall(function() globalConns.playerAdded:Disconnect() end)
-        globalConns.playerAdded = nil
-    end
-    -- clear per-player
-    for player, _ in pairs(ESPDrawings) do
-        clearPlayerESP(player)
-    end
-end
-
--- Erstellt ESP-Objekte für einen Spieler (wenn möglich)
-local function createESPForPlayer(player)
-    if player == LocalPlayer then return end
-    -- Wenn schon welche existieren, erst entfernen (sicher)
-    if ESPDrawings[player] then clearPlayerESP(player) end
-
-    local data = { boxes = {}, nametag = nil, conns = {} }
-    ESPDrawings[player] = data
-
-    local function spawnForCharacter(character)
-        if not character then return end
-        -- small wait to ensure parts exist
-        task.wait(0.1)
-        -- create boxes for parts
-        for _, part in ipairs(character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                local ok, box = pcall(function()
-                    local b = Instance.new("BoxHandleAdornment")
-                    b.Name = "ESPBox"
-                    b.Adornee = part
-                    b.AlwaysOnTop = true
-                    b.ZIndex = 10
-                    b.Size = part.Size
-                    b.Color3 = ESPColor
-                    b.Transparency = 0.4
-                    b.Parent = part -- parent to part to keep it scoped
-                    return b
-                end)
-                if ok and box then
-                    table.insert(data.boxes, box)
-                end
-            end
-        end
-
-        -- nametag
-        local head = character:FindFirstChild("Head")
-        if head then
-            pcall(function()
-                local tag = Instance.new("BillboardGui", head)
-                tag.Name = "ESPName"
-                tag.Size = UDim2.new(0, 100, 0, 20)
-                tag.StudsOffset = Vector3.new(0, 2.5, 0)
-                tag.AlwaysOnTop = true
-
-                local label = Instance.new("TextLabel", tag)
-                label.Size = UDim2.new(1, 0, 1, 0)
-                label.BackgroundTransparency = 1
-                label.Text = player.Name
-                label.TextColor3 = ESPColor
-                label.TextScaled = true
-                label.Font = Enum.Font.SourceSansBold
-
-                data.nametag = tag
-            end)
-        end
-    end
-
-    -- if character currently exists, spawn
-    if player.Character then
-        spawnForCharacter(player.Character)
-    end
-
-    -- reconnect on respawn
-    local charConn = player.CharacterAdded:Connect(function(char)
-        task.wait(0.2)
-        spawnForCharacter(char)
-    end)
-    table.insert(data.conns, charConn)
-
-    -- cleanup when player leaves
-    local leaveConn = Players.PlayerRemoving:Connect(function(p)
-        if p == player then clearPlayerESP(p) end
-    end)
-    table.insert(data.conns, leaveConn)
-end
-
--- Start / Stop RGB task
-local function startRGBTask()
-    if rgbTask then return end
-    rgbTask = task.spawn(function()
-        while RGBSelected do
-            ESPColor = Color3.fromHSV((tick() % 5) / 5, 1, 1)
-            applyColorToAll()
-            task.wait(0.1)
-        end
-        rgbTask = nil
-    end)
-end
-
-local function stopRGBTask()
-    RGBSelected = false
-    -- rgbTask will exit on next loop automatically
-end
-
--- Toggle für ESP im GUI
-MainTab:CreateToggle({
-    Name = "ESP (Outline + NameTag)",
-    CurrentValue = false,
-    Callback = function(state)
-        ESPEnabled = state
-
-        if not state then
-            -- disable: clear all and stop rgb
-            clearAllESP()
-            stopRGBTask()
-            return
-        end
-
-        -- enable: create for existing players
-        for _, player in ipairs(Players:GetPlayers()) do
-            createESPForPlayer(player)
-        end
-
-        -- ensure we create ESP for newly joined players
-        globalConns.playerAdded = Players.PlayerAdded:Connect(function(p)
-            task.wait(0.2)
-            createESPForPlayer(p)
-        end)
-    end
 })
 
--- Clear Button
+-- Extra Button: Clear ESP
 MainTab:CreateButton({
-    Name = "Clear All ESP",
-    Callback = function()
-        clearAllESP()
-        stopRGBTask()
-    end
+Name = "Clear All ESP",
+Callback = function()
+clearAllESP()
+end
 })
 
--- Dropdown (wählt pendingColor oder RGB)
-MainTab:CreateDropdown({
-    Name = "ESP Color",
-    Options = {"Red", "Green", "Blue", "Yellow", "White", "Cyan", "Magenta", "RGB"},
-    CurrentOption = "Red",
-    Callback = function(option)
-        -- Reset RGBSelected flag (we only start RGB once user hits Apply)
-        RGBSelected = false
-
-        if option == "Red" then
-            pendingColor = Color3.fromRGB(255,0,0)
-        elseif option == "Green" then
-            pendingColor = Color3.fromRGB(0,255,0)
-        elseif option == "Blue" then
-            pendingColor = Color3.fromRGB(0,0,255)
-        elseif option == "Yellow" then
-            pendingColor = Color3.fromRGB(255,255,0)
-        elseif option == "White" then
-            pendingColor = Color3.fromRGB(255,255,255)
-        elseif option == "Cyan" then
-            pendingColor = Color3.fromRGB(0,255,255)
-        elseif option == "Magenta" then
-            pendingColor = Color3.fromRGB(255,0,255)
-        elseif option == "RGB" then
-            -- mark as selected but don't start until Apply pressed
-            pendingColor = nil
-            RGBSelected = true
-        end
-    end
-})
-
--- Apply Color Button: erzwingt Farbanpassung sofort (auch wenn ESP bereits an ist)
-MainTab:CreateButton({
-    Name = "Apply Color",
-    Callback = function()
-        if RGBSelected then
-            -- start RGB loop (updates ESPColor each 0.1s)
-            startRGBTask()
-        else
-            -- apply pendingColor immediately
-            if pendingColor then
-                ESPColor = pendingColor
-                -- update existing ESP objects immediately
-                applyColorToAll()
-            end
-        end
-    end
-})
 
 local NoFallEnabled = false
 local NoFallConnections = {}
