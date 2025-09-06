@@ -178,7 +178,8 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
-local ESPColor = Color3.new(1,0,0) -- Rot (default)
+local ESPColor = Color3.new(1,0,0) -- Standard Rot
+local RGBEnabled = false
 
 -- Funktion: Alles ESP löschen
 local function clearAllESP()
@@ -201,9 +202,18 @@ local function clearAllESP()
     ESPDrawings = {}
 end
 
+-- Funktion: Rainbow Farben
+task.spawn(function()
+    while task.wait(0.1) do
+        if RGBEnabled then
+            ESPColor = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+        end
+    end
+end)
+
 -- ESP Toggle
 MainTab:CreateToggle({
-    Name = "ESP (Red Outline + NameTag)",
+    Name = "ESP (Outline + NameTag)",
     CurrentValue = false,
     Callback = function(state)
         ESPEnabled = state
@@ -233,6 +243,14 @@ MainTab:CreateToggle({
                         box.Transparency = 0.4
                         box.Parent = part
                         table.insert(drawings, box)
+
+                        -- Update Farbe dynamisch
+                        task.spawn(function()
+                            while box.Parent and ESPEnabled do
+                                box.Color3 = ESPColor
+                                task.wait(0.1)
+                            end
+                        end)
                     end
                 end
 
@@ -253,6 +271,14 @@ MainTab:CreateToggle({
                     label.TextScaled = true
                     label.Font = Enum.Font.SourceSansBold
                     table.insert(drawings, tag)
+
+                    -- Update Farbe dynamisch
+                    task.spawn(function()
+                        while tag.Parent and ESPEnabled do
+                            label.TextColor3 = ESPColor
+                            task.wait(0.1)
+                        end
+                    end)
                 end
             end
 
@@ -286,6 +312,26 @@ MainTab:CreateButton({
     Name = "Clear All ESP",
     Callback = function()
         clearAllESP()
+    end
+})
+
+-- Dropdown für Farben
+MainTab:CreateDropdown({
+    Name = "ESP Color",
+    Options = {"Red", "Green", "Blue", "Yellow", "White", "Cyan", "Magenta", "RGB"},
+    CurrentOption = "Red",
+    Callback = function(option)
+        RGBEnabled = false
+        if option == "Red" then ESPColor = Color3.new(1,0,0)
+        elseif option == "Green" then ESPColor = Color3.new(0,1,0)
+        elseif option == "Blue" then ESPColor = Color3.new(0,0,1)
+        elseif option == "Yellow" then ESPColor = Color3.new(1,1,0)
+        elseif option == "White" then ESPColor = Color3.new(1,1,1)
+        elseif option == "Cyan" then ESPColor = Color3.new(0,1,1)
+        elseif option == "Magenta" then ESPColor = Color3.new(1,0,1)
+        elseif option == "RGB" then
+            RGBEnabled = true
+        end
     end
 })
 
