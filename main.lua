@@ -415,202 +415,214 @@ local function CreateWindow(theme)
         end,
     })
 
-    ----------------------------------------------------
-    -- Aimbot
-    ----------------------------------------------------
-    local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-    local Camera = workspace.CurrentCamera
+----------------------------------------------------
+-- Services
+----------------------------------------------------
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
-    -- Aimbot Settings
-    local AimbotEnabled = false
-    local ShowFOV = false
-    local FOVRadius = 100
-    local FOVCircle
-    local AimbotKey = "T" -- Default Key
+----------------------------------------------------
+-- Aimbot Settings
+----------------------------------------------------
+local AimbotEnabled = false
+local ShowFOV = false
+local FOVRadius = 100
+local FOVCircle
+local AimbotKey = "T"
 
-    -- Create Tab
-    local AimbotTab = Window:CreateTab("| Aimbot", 10769687353)
+----------------------------------------------------
+-- Aimbot Tab
+----------------------------------------------------
+local AimbotTab = Window:CreateTab("| Aimbot", 10769687353)
 
-    -- Draw FOV Circle
-    local function CreateFOVCircle()
-        if FOVCircle then
-            FOVCircle:Remove()
-            FOVCircle = nil
-        end
-        if ShowFOV then
-            FOVCircle = Drawing.new("Circle")
-            FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-            FOVCircle.Radius = FOVRadius
-            FOVCircle.Thickness = 2
-            FOVCircle.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
-            FOVCircle.Filled = false
-            FOVCircle.Visible = true
-        end
+-- Draw FOV Circle
+local function CreateFOVCircle()
+    if FOVCircle then
+        FOVCircle:Remove()
+        FOVCircle = nil
     end
+    if ShowFOV then
+        FOVCircle = Drawing.new("Circle")
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        FOVCircle.Radius = FOVRadius
+        FOVCircle.Thickness = 2
+        FOVCircle.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+        FOVCircle.Filled = false
+        FOVCircle.Visible = true
+    end
+end
 
-    -- Update FOV Circle Position & Color
-    RunService.RenderStepped:Connect(function()
-        if FOVCircle then
-            FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-            FOVCircle.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
-        end
-    end)
+-- Update FOV Circle
+RunService.RenderStepped:Connect(function()
+    if FOVCircle then
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        FOVCircle.Radius = FOVRadius
+        FOVCircle.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+    end
+end)
 
-    -- Find Closest Target
-    local function GetClosestPlayer()
-        local closestPlayer
-        local shortestDistance = FOVRadius
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-                local headPos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
-                if onScreen then
-                    local distance = (Vector2.new(headPos.X, headPos.Y) - Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)).Magnitude
-                    if distance < shortestDistance then
-                        closestPlayer = player
-                        shortestDistance = distance
-                    end
+-- Find Closest Target
+local function GetClosestPlayer()
+    local closestPlayer
+    local shortestDistance = FOVRadius
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local headPos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
+            if onScreen then
+                local distance = (Vector2.new(headPos.X, headPos.Y) - Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)).Magnitude
+                if distance < shortestDistance then
+                    closestPlayer = player
+                    shortestDistance = distance
                 end
             end
         end
-        return closestPlayer
     end
+    return closestPlayer
+end
 
-    -- Aimbot Loop
-    RunService.RenderStepped:Connect(function()
-        if AimbotEnabled then
-            local target = GetClosestPlayer()
-            if target and target.Character and target.Character:FindFirstChild("Head") then
-                local head = target.Character.Head.Position
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head)
+-- Aimbot Loop
+RunService.RenderStepped:Connect(function()
+    if AimbotEnabled then
+        local target = GetClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            local head = target.Character.Head.Position
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head)
+            if LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
                 LocalPlayer.Character:SetPrimaryPartCFrame(CFrame.new(LocalPlayer.Character.PrimaryPart.Position, head))
             end
         end
-    end)
+    end
+end)
 
-    -- PC Aimbot Toggle
-    AimbotTab:CreateToggle({
-        Name = "Enable Aimbot (PC)",
-        CurrentValue = false,
-        Callback = function(Value)
-            AimbotEnabled = Value
+----------------------------------------------------
+-- Rayfield Controls
+----------------------------------------------------
+AimbotTab:CreateToggle({
+    Name = "Enable Aimbot (PC)",
+    CurrentValue = false,
+    Callback = function(Value)
+        AimbotEnabled = Value
+    end
+})
+
+AimbotTab:CreateToggle({
+    Name = "Show FOV Circle",
+    CurrentValue = false,
+    Callback = function(Value)
+        ShowFOV = Value
+        CreateFOVCircle()
+    end
+})
+
+AimbotTab:CreateSlider({
+    Name = "FOV Changer",
+    Range = {50, 500},
+    Increment = 10,
+    Suffix = "px",
+    CurrentValue = 100,
+    Callback = function(Value)
+        FOVRadius = Value
+    end
+})
+
+AimbotTab:CreateInput({
+    Name = "Aimbot Key (PC)",
+    PlaceholderText = "Default: T",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        if Text and #Text > 0 then
+            AimbotKey = Text:upper()
         end
-    })
+    end
+})
 
-    -- PC FOV Toggle
-    AimbotTab:CreateToggle({
-        Name = "Show FOV Circle (PC)",
-        CurrentValue = false,
-        Callback = function(Value)
-            ShowFOV = Value
+-- Keybind Toggle
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode.Name == AimbotKey then
+            AimbotEnabled = not AimbotEnabled
+            ShowFOV = AimbotEnabled
             CreateFOVCircle()
         end
-    })
+    end
+end)
 
-    -- Keybind Input (PC)
-    AimbotTab:CreateInput({
-        Name = "Aimbot Key (PC)",
-        PlaceholderText = "Press key (Default: T)",
-        RemoveTextAfterFocusLost = false,
-        Callback = function(Text)
-            if Text and #Text > 0 then
-                AimbotKey = Text:upper()
-            end
-        end
-    })
+----------------------------------------------------
+-- 📱 Phone GUI System
+----------------------------------------------------
+local PhoneGui
+local PhoneToggleButton
+local PhoneAimbotState = false
 
-    -- Keybind Toggle Handling
-    UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.UserInputType == Enum.UserInputType.Keyboard then
-            if input.KeyCode.Name == AimbotKey then
-                AimbotEnabled = not AimbotEnabled
-                ShowFOV = AimbotEnabled
-                CreateFOVCircle()
-            end
+local function CreatePhoneGui()
+    PhoneGui = Instance.new("ScreenGui")
+    PhoneGui.Name = "PhoneAimbotGui"
+    PhoneGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0.25, 0, 0.12, 0)
+    Frame.Position = UDim2.new(0.7, 0, 0.45, 0)
+    Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    Frame.BackgroundTransparency = 0.2
+    Frame.BorderSizePixel = 0
+    Frame.Active = true
+    Frame.Draggable = true
+    Frame.Parent = PhoneGui
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,15)
+
+    PhoneToggleButton = Instance.new("TextButton")
+    PhoneToggleButton.Size = UDim2.new(0.8, 0, 0.6, 0)
+    PhoneToggleButton.Position = UDim2.new(0.1, 0, 0.2, 0)
+    PhoneToggleButton.Text = "OFF"
+    PhoneToggleButton.TextScaled = true
+    PhoneToggleButton.BackgroundColor3 = Color3.fromRGB(200,50,50)
+    PhoneToggleButton.TextColor3 = Color3.fromRGB(255,255,255)
+    PhoneToggleButton.Parent = Frame
+    Instance.new("UICorner", PhoneToggleButton).CornerRadius = UDim.new(0,10)
+
+    PhoneToggleButton.MouseButton1Click:Connect(function()
+        PhoneAimbotState = not PhoneAimbotState
+        if PhoneAimbotState then
+            PhoneToggleButton.Text = "ON"
+            PhoneToggleButton.BackgroundColor3 = Color3.fromRGB(50,200,50)
+            AimbotEnabled = true
+            ShowFOV = true
+            CreateFOVCircle()
+        else
+            PhoneToggleButton.Text = "OFF"
+            PhoneToggleButton.BackgroundColor3 = Color3.fromRGB(200,50,50)
+            AimbotEnabled = false
+            ShowFOV = false
+            CreateFOVCircle()
         end
     end)
+end
 
-    ----------------------------------------------------
-    -- ðŸ“± Handy-GUI System
-    ----------------------------------------------------
-    local PhoneGui -- referenz auf das GUI
-    local PhoneToggleButton -- referenz auf den On/Off-Button
-    local PhoneAimbotState = false -- Zustand im GUI
-
-    -- Funktion zum Erstellen des GUIs
-    local function CreatePhoneGui()
-        PhoneGui = Instance.new("ScreenGui")
-        PhoneGui.Name = "PhoneAimbotGui"
-        PhoneGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-        local Frame = Instance.new("Frame")
-        Frame.Size = UDim2.new(0.25, 0, 0.12, 0) -- klein
-        Frame.Position = UDim2.new(0.7, 0, 0.45, 0) -- rechts Mitte
-        Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        Frame.BackgroundTransparency = 0.2
-        Frame.BorderSizePixel = 0
-        Frame.Active = true
-        Frame.Draggable = true
-        Frame.Parent = PhoneGui
-
-        local UICorner = Instance.new("UICorner", Frame)
-        UICorner.CornerRadius = UDim.new(0, 15)
-
-        -- On/Off Button
-        PhoneToggleButton = Instance.new("TextButton")
-        PhoneToggleButton.Size = UDim2.new(0.8, 0, 0.6, 0)
-        PhoneToggleButton.Position = UDim2.new(0.1, 0, 0.2, 0)
-        PhoneToggleButton.Text = "OFF"
-        PhoneToggleButton.TextScaled = true
-        PhoneToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        PhoneToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        PhoneToggleButton.Parent = Frame
-        Instance.new("UICorner", PhoneToggleButton).CornerRadius = UDim.new(0, 10)
-
-        -- Button Logik
-        PhoneToggleButton.MouseButton1Click:Connect(function()
-            PhoneAimbotState = not PhoneAimbotState
-            if PhoneAimbotState then
-                PhoneToggleButton.Text = "ON"
-                PhoneToggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-                AimbotEnabled = true
-                ShowFOV = true
-                CreateFOVCircle()
-            else
-                PhoneToggleButton.Text = "OFF"
-                PhoneToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-                AimbotEnabled = false
-                ShowFOV = false
-                CreateFOVCircle()
-            end
-        end)
+local function RemovePhoneGui()
+    if PhoneGui then
+        PhoneGui:Destroy()
+        PhoneGui = nil
+        PhoneAimbotState = false
     end
+end
 
-    -- Funktion zum Entfernen des GUIs
-    local function RemovePhoneGui()
-        if PhoneGui then
-            PhoneGui:Destroy()
-            PhoneGui = nil
-            PhoneAimbotState = false
+-- 📱 Toggle im Rayfield-Menü
+AimbotTab:CreateToggle({
+    Name = "Phone Aimbot GUI",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then
+            if not PhoneGui then
+                CreatePhoneGui()
+            end
+        else
+            RemovePhoneGui()
         end
     end
-
-    -- ðŸ“± Toggle im Rayfield-Menü
-    AimbotTab:CreateToggle({
-        Name = "Phone Aimbot GUI",
-        CurrentValue = false,
-        Callback = function(Value)
-            if Value then
-                if not PhoneGui then
-                    CreatePhoneGui()
-                end
-            else
-                RemovePhoneGui()
-            end
-        end
-    })
+})
 
     -- TELEPORT TAB
     local TeleportTab = Window:CreateTab("| Teleport", 138281706845765)
