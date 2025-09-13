@@ -23,7 +23,7 @@ local function CreateWindow(theme)
     end
 
     local Window = Rayfield:CreateWindow({
-        Name = "🔥Silent Scripts V1.8.5🔥",
+        Name = "Silent Scripts V1.8",
         Icon = 0,
         LoadingTitle = "Loading...",
         LoadingSubtitle = "by Pingz0",
@@ -158,25 +158,77 @@ local function CreateWindow(theme)
         stopFly() -- sofort wieder ausmachen -> Toggle funktioniert normal
     end)
 
-    -- NoClip
-    MainTab:CreateToggle({
-        Name = "NoClip",
-        CurrentValue = false,
-        Callback = function(enabled)
-            local RunService = game:GetService("RunService")
-            local player = game.Players.LocalPlayer
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
 
-            RunService.Stepped:Connect(function()
-                if enabled and player.Character then
-                    for _, part in pairs(player.Character:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                            part.CanCollide = false
-                        end
-                    end
-                end
-            end)
+local noclipEnabled = false
+local noclipConnection = nil
+
+local function setCollision(state)
+    local char = player.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = state
+            end
         end
-    })
+        if not state then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                if humanoid.Sit then
+                    humanoid.Sit = false
+                end
+                humanoid.Jump = true
+            end
+        end
+    end
+end
+
+local function setNoclip(state)
+    noclipEnabled = state
+    if state then
+        if not player.Character then
+            player.CharacterAdded:Wait()
+        end
+        setCollision(false)
+        noclipConnection = RunService.Stepped:Connect(function()
+            if noclipEnabled and player.Character then
+                setCollision(false)
+            end
+        end)
+    else
+        if noclipConnection then
+            noclipConnection:Disconnect()
+            noclipConnection = nil
+        end
+        setCollision(true)
+    end
+end
+
+player.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart", 5)
+    task.wait(0.1)
+    if noclipEnabled then
+        setCollision(false)
+    else
+        setCollision(true)
+    end
+end)
+
+if player.Character then
+    task.wait(0.1)
+    setCollision(true)
+end
+
+local NoclipToggle = MainTab:CreateToggle({
+    Name = "Noclip",
+    CurrentValue = false,
+    Flag = "NoclipToggle",
+    Callback = function(Value)
+        setNoclip(Value)
+    end,
+})
 
     local ESPDrawings = {}
     local ESPConnections = {}
@@ -619,7 +671,7 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 ----------------------------------------------------
--- 📱 Phone GUI System
+--  Phone GUI System
 ----------------------------------------------------
 local PhoneGui
 local PhoneToggleButton
@@ -666,7 +718,7 @@ local function RemovePhoneGui()
     end
 end
 
--- 📱 Toggle in Rayfield Menu
+--  Toggle in Rayfield Menu
 AimbotTab:CreateToggle({
     Name = "Phone Aimbot GUI",
     CurrentValue = false,
@@ -681,132 +733,257 @@ AimbotTab:CreateToggle({
     end
 }) 
 
-    -- TELEPORT TAB
-    local TeleportTab = Window:CreateTab("| Teleport", 138281706845765)
+-- TELEPORT TAB
+local TeleportTab = Window:CreateTab("| Teleport", 138281706845765)
 
-    local selectedPlayerName = nil
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local selectedPlayerName = nil
+local customTeleportPosition = nil
+local customSpawnPosition = nil
+local clickTeleportEnabled = false
+local touchTeleportEnabled = false
 
-    -- Dropdown erstellen
-    local PlayerDropdown = TeleportTab:CreateDropdown({
-        Name = "TP to Player",
-        Options = {},
-        CurrentOption = nil,
-        Callback = function(option)
-            if typeof(option) == "string" then
-                selectedPlayerName = option
-            elseif typeof(option) == "table" and typeof(option[1]) == "string" then
-                selectedPlayerName = option[1]
-            end
-        end,
-    })
+-- Dropdown for player selection
+local PlayerDropdown = TeleportTab:CreateDropdown({
+    Name = "Teleport to Player",
+    Options = {},
+    CurrentOption = nil,
+    Callback = function(option)
+        if typeof(option) == "string" then
+            selectedPlayerName = option
+        elseif typeof(option) == "table" and typeof(option[1]) == "string" then
+            selectedPlayerName = option[1]
+        end
+    end,
+})
 
-    -- Button zum Teleportieren
-    TeleportTab:CreateButton({
-        Name = "Teleport",
-        Callback = function()
-            if not selectedPlayerName then
+-- Button to teleport to selected player
+TeleportTab:CreateButton({
+    Name = "Teleport",
+    Callback = function()
+        if not selectedPlayerName then
+            Rayfield:Notify({
+                Title = "Error",
+                Content = "No player selected.",
+                Duration = 3
+            })
+            return
+        end
+
+        local target = Players:FindFirstChild(selectedPlayerName)
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character:WaitForChild("HumanoidRootPart").CFrame = target.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+        else
+            Rayfield:Notify({
+                Title = "Teleport Error",
+                Content = "Player not found or missing HumanoidRootPart.",
+                Duration = 4
+            })
+        end
+    end
+})
+
+-- Function to update player dropdown
+local function UpdateDropdown()
+    local names = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            table.insert(names, player.Name)
+        end
+    end
+    PlayerDropdown:Refresh(names, true)
+end
+
+-- Initialize dropdown
+UpdateDropdown()
+
+-- Update dropdown when players join or leave
+Players.PlayerAdded:Connect(function()
+    task.wait(0.2)
+    UpdateDropdown()
+end)
+
+Players.PlayerRemoving:Connect(function()
+    task.wait(0.2)
+    UpdateDropdown()
+end)
+
+-- Function to set teleport point
+local function setTeleportPoint()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        customTeleportPosition = LocalPlayer.Character.HumanoidRootPart.Position
+        Rayfield:Notify({
+            Title = "TPpoint Set",
+            Content = "Position: " .. tostring(customTeleportPosition),
+            Duration = 5,
+            Image = 4483362458
+        })
+    else
+        Rayfield:Notify({
+            Title = "Error",
+            Content = "HumanoidRootPart not found! Please report in our Discord.",
+            Duration = 5,
+            Image = 4483362458
+        })
+    end
+end
+
+-- Function to set spawn point
+local function setSpawnPoint()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        customSpawnPosition = LocalPlayer.Character.HumanoidRootPart.Position
+        Rayfield:Notify({
+            Title = "Spawn Point Set",
+            Content = "Spawn Position: " .. tostring(customSpawnPosition),
+            Duration = 5,
+            Image = 4483362458
+        })
+    else
+        Rayfield:Notify({
+            Title = "Error",
+            Content = "HumanoidRootPart not found! Please report in our Discord.",
+            Duration = 5,
+            Image = 4483362458
+        })
+    end
+end
+
+-- Handle character spawn
+LocalPlayer.CharacterAdded:Connect(function(character)
+    if customSpawnPosition then
+        local hrp = character:WaitForChild("HumanoidRootPart")
+        hrp.CFrame = CFrame.new(customSpawnPosition + Vector3.new(0, 5, 0))
+    end
+end)
+
+-- Mouse Click TP functionality
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and clickTeleportEnabled and not gameProcessedEvent then
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local mouse = LocalPlayer:GetMouse()
+            local ray = workspace.CurrentCamera:ScreenPointToRay(mouse.X, mouse.Y)
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+            local raycastResult = workspace:Raycast(ray.Origin, ray.Direction * 1000, raycastParams)
+            
+            if raycastResult then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(raycastResult.Position + Vector3.new(0, 5, 0))
                 Rayfield:Notify({
-                    Title = "Fehler",
-                    Content = "Kein Spieler ausgewählt.",
-                    Duration = 3
+                    Title = "Click Teleport",
+                    Content = "Teleported to clicked position!",
+                    Duration = 4,
+                    Image = 4483362458
                 })
-                return
-            end
-
-            local target = Players:FindFirstChild(selectedPlayerName)
-            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character:WaitForChild("HumanoidRootPart").CFrame = target.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
             else
                 Rayfield:Notify({
-                    Title = "Teleport Error",
-                    Content = "Player not found or missing HumanoidRootPart.",
-                    Duration = 4
+                    Title = "Click Teleport Failed",
+                    Content = "No valid surface found at clicked position.",
+                    Duration = 4,
+                    Image = 4483362458
                 })
             end
         end
-    })
+    end
+end)
 
-    -- Funktion zum Aktualisieren der Spieler im Dropdown
-    local function UpdateDropdown()
-        local names = {}
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                table.insert(names, player.Name)
+-- Touch TP functionality (for phones)
+UserInputService.TouchTap:Connect(function(touchPositions, gameProcessedEvent)
+    if touchTeleportEnabled and not gameProcessedEvent and #touchPositions > 0 then
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local touchPos = touchPositions[1] -- Use the first touch position
+            local ray = workspace.CurrentCamera:ScreenPointToRay(touchPos.X, touchPos.Y)
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+            local raycastResult = workspace:Raycast(ray.Origin, ray.Direction * 1000, raycastParams)
+            
+            if raycastResult then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(raycastResult.Position + Vector3.new(0, 5, 0))
+                Rayfield:Notify({
+                    Title = "Touch Teleport",
+                    Content = "Teleported to tapped position!",
+                    Duration = 4,
+                    Image = 4483362458
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Touch Teleport Failed",
+                    Content = "No valid surface found at tapped position.",
+                    Duration = 4,
+                    Image = 4483362458
+                })
             end
         end
-        PlayerDropdown:Refresh(names, true)
     end
+end)
 
-    -- Spieler beim Start hinzufügen
-    UpdateDropdown()
+-- Button to set TPpoint
+TeleportTab:CreateButton({
+    Name = "Set TPpoint",
+    Callback = setTeleportPoint
+})
 
-    -- Neue Spieler dynamisch hinzufügen
-    Players.PlayerAdded:Connect(function()
-        task.wait(0.2)
-        UpdateDropdown()
-    end)
-
-    Players.PlayerRemoving:Connect(function()
-        task.wait(0.2)
-        UpdateDropdown()
-    end)
-
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer
-    local customSpawnPosition = nil
-
-    local function setSpawnPoint()
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            customSpawnPosition = player.Character.HumanoidRootPart.Position
+-- Button to teleport to TPpoint
+TeleportTab:CreateButton({
+    Name = "Teleport to TPpoint",
+    Callback = function()
+        if customTeleportPosition and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(customTeleportPosition + Vector3.new(0, 5, 0))
             Rayfield:Notify({
-                Title = "TPpoint Set",
-                Content = "Position: " .. tostring(customSpawnPosition),
-                Duration = 5,
+                Title = "Teleported!",
+                Content = "You have been moved to your saved TPpoint.",
+                Duration = 4,
                 Image = 4483362458
             })
         else
             Rayfield:Notify({
-                Title = "Please Report in Our Dc if this is shown",
-                Content = "HumanoidRootPart not found!",
-                Duration = 5,
+                Title = "Teleport Failed",
+                Content = "Make sure you set a TPpoint first.",
+                Duration = 4,
                 Image = 4483362458
             })
         end
     end
+})
 
-    player.CharacterAdded:Connect(function(character)
-        if customSpawnPosition then
-            local hrp = character:WaitForChild("HumanoidRootPart")
-            hrp.CFrame = CFrame.new(customSpawnPosition + Vector3.new(0, 5, 0))
-        end
-    end)
+-- Button to set spawn point
+TeleportTab:CreateButton({
+    Name = "Change Spawn Point",
+    Callback = setSpawnPoint
+})
 
-    TeleportTab:CreateButton({
-        Name = "Set TPpoint",
-        Callback = setSpawnPoint
-    })
+-- Toggle for Mouse Click TP
+TeleportTab:CreateToggle({
+    Name = "Enable Click TP",
+    CurrentValue = false,
+    Callback = function(value)
+        clickTeleportEnabled = value
+        Rayfield:Notify({
+            Title = "Click TP",
+            Content = value and "Click TP enabled. Click anywhere to teleport." or "Click TP disabled.",
+            Duration = 4,
+            Image = 4483362458
+        })
+    end
+})
 
-    TeleportTab:CreateButton({
-        Name = "Teleport to TPpoint",
-        Callback = function()
-            if customSpawnPosition and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(customSpawnPosition + Vector3.new(0, 5, 0))
-                Rayfield:Notify({
-                    Title = "Teleported!",
-                    Content = "You have been moved to your saved TPpoint.",
-                    Duration = 4,
-                    Image = 4483362458
-                })
-            else
-                Rayfield:Notify({
-                    Title = "Teleport Failed",
-                    Content = "Make sure you set a TPpoint first.",
-                    Duration = 4,
-                    Image = 4483362458
-                })
-            end
-        end
-    })
+-- Toggle for Touch TP (Phone)
+TeleportTab:CreateToggle({
+    Name = "Enable Click TP (Phone)",
+    CurrentValue = false,
+    Callback = function(value)
+        touchTeleportEnabled = value
+        Rayfield:Notify({
+            Title = "Touch TP",
+            Content = value and "Touch TP enabled. Tap anywhere to teleport." or "Touch TP disabled.",
+            Duration = 4,
+            Image = 4483362458
+        })
+    end
+})
 
     -- Settings Tab
     local SettingsTab = Window:CreateTab("| Settings", 6034509993)
