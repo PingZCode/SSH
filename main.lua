@@ -23,7 +23,7 @@ local function CreateWindow(theme)
     end
 
     local Window = Rayfield:CreateWindow({
-        Name = "🔥Silent Scripts V1.7🔥",
+        Name = "🔥Silent Scripts V1.7.5🔥",
         Icon = 0,
         LoadingTitle = "Loading...",
         LoadingSubtitle = "by Pingz0",
