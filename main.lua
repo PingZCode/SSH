@@ -985,7 +985,164 @@ TeleportTab:CreateToggle({
     end
 })
 
-    -- Settings Tab
+
+---------------------------------------------------------------------
+-- 🧭 Utility
+---------------------------------------------------------------------
+local function GetVehicleFromDescendant(Descendant)
+	return
+		Descendant:FindFirstAncestor(LocalPlayer.Name .. "'s Car") or
+		(Descendant:FindFirstAncestor("Body") and Descendant:FindFirstAncestor("Body").Parent) or
+		(Descendant:FindFirstAncestor("Misc") and Descendant:FindFirstAncestor("Misc").Parent) or
+		Descendant:FindFirstAncestorWhichIsA("Model")
+end
+
+---------------------------------------------------------------------
+-- 🚗 Variables
+---------------------------------------------------------------------
+local flightEnabled = false
+local throttleEnabled = false
+local brakeEnabled = false
+local stopEnabled = false
+
+local flightSpeed = 1
+local accelPower = 0.025
+local brakePower = 0.15
+
+---------------------------------------------------------------------
+-- 🪂 Vehicle Tab
+---------------------------------------------------------------------
+local vehicleTab = Window:CreateTab("Vehicle")
+
+vehicleTab:CreateToggle({
+	Name = "Flight Mode (move with WASD + QE)",
+	CurrentValue = false,
+	Callback = function(v)
+		flightEnabled = v
+	end
+})
+
+vehicleTab:CreateToggle({
+	Name = "Full Throttle (triggered with W)",
+	CurrentValue = false,
+	Callback = function(v)
+		throttleEnabled = v
+	end
+})
+
+vehicleTab:CreateToggle({
+	Name = "Quick Brake (triggered with S)",
+	CurrentValue = false,
+	Callback = function(v)
+		brakeEnabled = v
+	end
+})
+
+vehicleTab:CreateToggle({
+	Name = "Stop Vehicle",
+	CurrentValue = false,
+	Callback = function(v)
+		stopEnabled = v
+		if v then
+			local Character = LocalPlayer.Character
+			if not Character then return end
+			local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+			if not Humanoid or not Humanoid.SeatPart then return end
+			local SeatPart = Humanoid.SeatPart
+			if SeatPart:IsA("VehicleSeat") then
+				SeatPart.AssemblyLinearVelocity = Vector3.zero
+				SeatPart.AssemblyAngularVelocity = Vector3.zero
+			end
+		end
+	end
+})
+
+vehicleTab:CreateSlider({
+	Name = "Flight Speed",
+	Range = {0.5, 10},
+	Increment = 0.5,
+	CurrentValue = 1,
+	Callback = function(v)
+		flightSpeed = v
+	end
+})
+
+vehicleTab:CreateSlider({
+	Name = "Acceleration Power",
+	Range = {0.01, 0.1},
+	Increment = 0.005,
+	CurrentValue = 0.025,
+	Callback = function(v)
+		accelPower = v
+	end
+})
+
+vehicleTab:CreateSlider({
+	Name = "Brake Power",
+	Range = {0.05, 0.3},
+	Increment = 0.01,
+	CurrentValue = 0.15,
+	Callback = function(v)
+		brakePower = v
+	end
+})
+
+---------------------------------------------------------------------
+-- 🛞 Flight + Vehicle Control
+---------------------------------------------------------------------
+RunService.Stepped:Connect(function()
+	local Character = LocalPlayer.Character
+	if not Character then return end
+	local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+	if not Humanoid then return end
+	local SeatPart = Humanoid.SeatPart
+	if not SeatPart or not SeatPart:IsA("VehicleSeat") then return end
+	local Vehicle = GetVehicleFromDescendant(SeatPart)
+	if not Vehicle or not Vehicle:IsA("Model") then return end
+
+	if flightEnabled then
+		if not Vehicle.PrimaryPart then
+			Vehicle.PrimaryPart = SeatPart or Vehicle:FindFirstChildWhichIsA("BasePart")
+		end
+		local PrimaryPartCFrame = Vehicle:GetPrimaryPartCFrame()
+		local moveVec = Vector3.new()
+		if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVec += Vector3.new(0, 0, -flightSpeed) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVec += Vector3.new(0, 0, flightSpeed) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVec += Vector3.new(-flightSpeed, 0, 0) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVec += Vector3.new(flightSpeed, 0, 0) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.E) then moveVec += Vector3.new(0, flightSpeed / 2, 0) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.Q) then moveVec += Vector3.new(0, -flightSpeed / 2, 0) end
+
+		if moveVec.Magnitude > 0 then
+			Vehicle:SetPrimaryPartCFrame(CFrame.new(PrimaryPartCFrame.Position, PrimaryPartCFrame.Position + workspace.CurrentCamera.CFrame.LookVector) * CFrame.new(moveVec))
+		end
+		SeatPart.AssemblyLinearVelocity = Vector3.zero
+		SeatPart.AssemblyAngularVelocity = Vector3.zero
+	end
+end)
+
+---------------------------------------------------------------------
+-- ⚙️ Acceleration + Brake
+---------------------------------------------------------------------
+task.spawn(function()
+	while true do
+		task.wait(0.02)
+		local Character = LocalPlayer.Character
+		if not Character then continue end
+		local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+		if not Humanoid or not Humanoid.SeatPart or not Humanoid.SeatPart:IsA("VehicleSeat") then continue end
+		local SeatPart = Humanoid.SeatPart
+		local v = SeatPart.AssemblyLinearVelocity
+		if throttleEnabled and UserInputService:IsKeyDown(Enum.KeyCode.W) and v then
+			SeatPart.AssemblyLinearVelocity = Vector3.new(v.X * (1 + accelPower), v.Y, v.Z * (1 + accelPower))
+		end
+		if brakeEnabled and UserInputService:IsKeyDown(Enum.KeyCode.S) and v then
+			SeatPart.AssemblyLinearVelocity = Vector3.new(v.X * (1 - brakePower), v.Y, v.Z * (1 - brakePower))
+		end
+	end
+end)
+
+-- Settings Tab
     local SettingsTab = Window:CreateTab("| Settings", 6034509993)
 
     -- Dropdown für Theme-Auswahl
